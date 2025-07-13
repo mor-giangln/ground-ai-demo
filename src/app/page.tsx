@@ -1,103 +1,220 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { createClient } from '@supabase/supabase-js';
+import { ILead } from '@/types';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [leadInfo, setLeadInfo] = useState<ILead>({
+    name: '',
+    role: '',
+    company: '',
+    linkedin_url: '',
+  });
+  const [leads, setLeads] = useState<ILead[]>([]);
+  const [selectedLead, setSelectedLead] = useState<ILead | null>(null);
+  const [generatedMessages, setGeneratedMessages] = useState<any[]>([]);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    loadLeads();
+  }, []);
+
+  const handleChange = (field: keyof ILead, value: string) => {
+    setLeadInfo(prev => ({ ...prev, [field]: value }));
+  };
+
+  const generateMessage = async () => {
+    if (!selectedLead) return;
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: selectedLead.name,
+          role: selectedLead.role,
+          company: selectedLead.company,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        console.error('Generate API error:', err);
+        return;
+      }
+      const data = await res.json();
+      await supabase.from('generated_messages').insert([
+        {
+          lead_id: selectedLead.id,
+          content: data.message,
+          status: 'Draft',
+        },
+      ]);
+      loadMessages(selectedLead.id!);
+    } catch (error) {
+      console.error('Unexpected error generating message:', error);
+    }
+  };
+
+  const insertLead = async () => {
+    const { data, error } = await supabase.from('leads').insert([
+      leadInfo,
+    ]);
+    if (!error) {
+      resetForm();
+      loadLeads();
+    }
+  };
+
+  const updateLead = async () => {
+    if (!selectedLead) return;
+    const { error } = await supabase
+      .from('leads')
+      .update({
+        name: leadInfo.name,
+        role: leadInfo.role,
+        company: leadInfo.company,
+        linkedin_url: leadInfo.linkedin_url,
+      })
+      .eq('id', selectedLead.id);
+    if (!error) {
+      loadLeads();
+      setSelectedLead(null);
+      resetForm();
+    }
+  };
+
+  const loadLeads = async () => {
+    const { data } = await supabase.from('leads').select('*');
+    setLeads(data || []);
+  };
+
+  const loadMessages = async (leadId: string) => {
+    const { data } = await supabase
+      .from('generated_messages')
+      .select('*')
+      .eq('lead_id', leadId);
+    setGeneratedMessages(data || []);
+  };
+
+  const handleSelectLead = (lead: ILead) => {
+    if (selectedLead?.id === lead.id) {
+      setSelectedLead(null);
+      resetForm();
+      setGeneratedMessages([]);
+    } else {
+      setSelectedLead(lead);
+      setLeadInfo({
+        id: lead.id,
+        name: lead.name,
+        role: lead.role,
+        company: lead.company,
+        linkedin_url: lead.linkedin_url || '',
+      });
+      loadMessages(lead.id!);
+    }
+  };
+
+  const resetForm = () => {
+    setLeadInfo({ name: '', role: '', company: '', linkedin_url: '' });
+  };
+
+  return (
+    <div className="p-4 space-y-6 max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold text-center">👋 Welcome to LinkedIn DM Assistant</h1>
+      <p className="text-center text-gray-600">Easily create personalized LinkedIn messages to connect with your leads.</p>
+
+      <div className="space-y-4 border p-4 rounded-lg shadow-sm">
+        <h2 className="text-xl font-semibold">Lead Information</h2>
+
+        <Input
+          placeholder="Name"
+          value={leadInfo.name}
+          onChange={e => handleChange('name', e.target.value)}
+          required
+        />
+        <Input
+          placeholder="Role"
+          value={leadInfo.role}
+          onChange={e => handleChange('role', e.target.value)}
+          required
+        />
+        <Input
+          placeholder="Company"
+          value={leadInfo.company}
+          onChange={e => handleChange('company', e.target.value)}
+          required
+        />
+        <Input
+          placeholder="LinkedIn URL (optional)"
+          value={leadInfo.linkedin_url}
+          onChange={e => handleChange('linkedin_url', e.target.value)}
+        />
+
+        {selectedLead && (
+          <Button onClick={generateMessage}>Generate Message</Button>
+        )}
+
+        <div className="flex space-x-2">
+          <Button onClick={selectedLead ? updateLead : insertLead}>
+            {selectedLead ? 'Save Lead' : 'Insert Lead'}
+          </Button>
+          <Button onClick={loadLeads}>Reload Leads</Button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      <div className="pt-6">
+        <h2 className="text-xl font-semibold">Leads</h2>
+        <table className="w-full text-left mt-2 border">
+          <thead>
+            <tr>
+              <th className="border px-2">Name</th>
+              <th className="border px-2">Role</th>
+              <th className="border px-2">Company</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leads.map((lead) => (
+              <tr
+                key={lead.id}
+                className={`cursor-pointer ${selectedLead?.id === lead.id ? 'bg-blue-200' : ''}`}
+                onClick={() => handleSelectLead(lead)}
+              >
+                <td className="border px-2">{lead.name}</td>
+                <td className="border px-2">{lead.role}</td>
+                <td className="border px-2">{lead.company}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {selectedLead && (
+        <div className="pt-6">
+          <h2 className="text-xl font-semibold">Generated Messages</h2>
+          <table className="w-full text-left mt-2 border">
+            <thead>
+              <tr>
+                <th className="border px-2">Content</th>
+                <th className="border px-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {generatedMessages.map((msg, i) => (
+                <tr key={i}>
+                  <td className="border px-2 whitespace-pre-wrap">{msg.content}</td>
+                  <td className="border px-2">{msg.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
