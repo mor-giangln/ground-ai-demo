@@ -3,14 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { createClient } from '@supabase/supabase-js';
 import { IGeneratedMessage, ILead } from '@/types';
 import { toast } from 'react-toastify';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from '@/lib/supabase';
 
 export default function Home() {
   const [leadInfo, setLeadInfo] = useState<ILead>({
