@@ -24,12 +24,12 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error('API generate error:', error);
     // Handle insufficient quota specifically
-    if (error.message?.includes('insufficient_quota') || error.code === 'insufficient_quota') {
-      return NextResponse.json(
-        { error: 'Insufficient OpenAI quota. Please refill your API quota.' },
-        { status: 402 }
-      );
-    }
+    // if (error.message?.includes('insufficient_quota') || error.code === 'insufficient_quota') {
+    //   return NextResponse.json(
+    //     { error: 'Insufficient OpenAI quota. Please refill your API quota.' },
+    //     { status: 402 }
+    //   );
+    // }
     // Generic error
     return NextResponse.json(
       { error: 'Failed to generate message. Please try again later.' },

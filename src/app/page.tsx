@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@supabase/supabase-js';
-import { ILead } from '@/types';
+import { IGeneratedMessage, ILead } from '@/types';
+import { toast } from 'react-toastify';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,13 +19,23 @@ export default function Home() {
     company: '',
     linkedin_url: '',
   });
+  const [isValid, setIsValid] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [leads, setLeads] = useState<ILead[]>([]);
   const [selectedLead, setSelectedLead] = useState<ILead | null>(null);
-  const [generatedMessages, setGeneratedMessages] = useState<any[]>([]);
+  const [generatedMessages, setGeneratedMessages] = useState<IGeneratedMessage[]>([]);
 
   useEffect(() => {
     loadLeads();
   }, []);
+
+  useEffect(() => {
+    if (leadInfo.name === '' || leadInfo.role === '' || leadInfo.company === '') {
+      setIsValid(false);
+    } else {
+      setIsValid(true);
+    }
+  }, [leadInfo])
 
   const handleChange = (field: keyof ILead, value: string) => {
     setLeadInfo(prev => ({ ...prev, [field]: value }));
@@ -33,6 +44,7 @@ export default function Home() {
   const generateMessage = async () => {
     if (!selectedLead) return;
     try {
+      setIsLoading(true);
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -42,51 +54,80 @@ export default function Home() {
           company: selectedLead.company,
         }),
       });
-      if (!res.ok) {
+      if (res.ok) {
+        const data = await res.json();
+        await supabase.from('generated_messages').insert([
+          {
+            lead_id: selectedLead.id,
+            content: data.message,
+            status: 'Draft',
+          },
+        ]);
+        toast.success('Successfully generated message.')
+        loadMessages(selectedLead.id!);
+      } else {
         const err = await res.text();
         console.error('Generate API error:', err);
         return;
       }
-      const data = await res.json();
-      await supabase.from('generated_messages').insert([
-        {
-          lead_id: selectedLead.id,
-          content: data.message,
-          status: 'Draft',
-        },
-      ]);
-      loadMessages(selectedLead.id!);
     } catch (error) {
       console.error('Unexpected error generating message:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const insertLead = async () => {
-    const { data, error } = await supabase.from('leads').insert([
-      leadInfo,
-    ]);
-    if (!error) {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase.from('leads').insert([
+        leadInfo,
+      ]);
+      if (data) {
+        toast.success('Successfully inserted new lead.')
+      }
+      if (!error) {
+        resetForm();
+        loadLeads();
+      }
+    } catch (error) {
+      console.log(error)
+    } finally {
       resetForm();
       loadLeads();
+      setIsLoading(false);
     }
   };
 
   const updateLead = async () => {
-    if (!selectedLead) return;
-    const { error } = await supabase
-      .from('leads')
-      .update({
-        name: leadInfo.name,
-        role: leadInfo.role,
-        company: leadInfo.company,
-        linkedin_url: leadInfo.linkedin_url,
-      })
-      .eq('id', selectedLead.id);
-    if (!error) {
+    try {
+      if (!selectedLead) return;
+      setIsLoading(true);
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          name: leadInfo.name,
+          role: leadInfo.role,
+          company: leadInfo.company,
+          linkedin_url: leadInfo.linkedin_url,
+        })
+        .eq('id', selectedLead.id);
+      toast.success('Successfully update lead.')
+      if (!error) {
+        loadLeads();
+        setSelectedLead(null);
+        resetForm();
+      }
+    } catch (error) {
+      console.log(error)
+      toast.error('Something wrong.')
+    } finally {
       loadLeads();
       setSelectedLead(null);
       resetForm();
+      setIsLoading(false);
     }
+
   };
 
   const loadLeads = async () => {
@@ -157,25 +198,25 @@ export default function Home() {
         />
 
         {selectedLead && (
-          <Button onClick={generateMessage}>Generate Message</Button>
+          <Button onClick={generateMessage} disabled={isLoading}>Generate Message</Button>
         )}
 
         <div className="flex space-x-2">
-          <Button onClick={selectedLead ? updateLead : insertLead}>
+          <Button onClick={selectedLead ? updateLead : insertLead} disabled={!isValid || isLoading}>
             {selectedLead ? 'Save Lead' : 'Insert Lead'}
           </Button>
-          <Button onClick={loadLeads}>Reload Leads</Button>
         </div>
       </div>
 
       <div className="pt-6">
+        <Button className='mb-2' onClick={loadLeads}>Reload Leads</Button>
         <h2 className="text-xl font-semibold">Leads</h2>
         <table className="w-full text-left mt-2 border">
           <thead>
             <tr>
-              <th className="border px-2">Name</th>
-              <th className="border px-2">Role</th>
-              <th className="border px-2">Company</th>
+              <th className="border px-2 text-lg">Name</th>
+              <th className="border px-2 text-lg">Role</th>
+              <th className="border px-2 text-lg">Company</th>
             </tr>
           </thead>
           <tbody>
@@ -200,13 +241,15 @@ export default function Home() {
           <table className="w-full text-left mt-2 border">
             <thead>
               <tr>
-                <th className="border px-2">Content</th>
-                <th className="border px-2">Status</th>
+                <th className="border px-2 text-lg">No</th>
+                <th className="border px-2 text-lg">Content</th>
+                <th className="border px-2 text-lg">Status</th>
               </tr>
             </thead>
             <tbody>
               {generatedMessages.map((msg, i) => (
                 <tr key={i}>
+                  <td className="border px-2">{i + 1}</td>
                   <td className="border px-2 whitespace-pre-wrap">{msg.content}</td>
                   <td className="border px-2">{msg.status}</td>
                 </tr>
