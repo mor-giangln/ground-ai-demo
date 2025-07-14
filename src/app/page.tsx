@@ -161,96 +161,115 @@ export default function Home() {
   };
 
   return (
-    <div className="p-4 space-y-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-center">👋 Welcome to LinkedIn DM Assistant</h1>
-      <p className="text-center text-gray-600">Easily create personalized LinkedIn messages to connect with your leads.</p>
+    <div className="m-6 p-6 space-y-6 max-w-4xl mx-auto bg-gray-900 text-gray-100 rounded-lg shadow-xl">
+      <h1 className="text-4xl font-extrabold text-center">👋 Welcome to LinkedIn DM Assistant</h1>
+      <p className="text-center text-gray-400">Easily create personalized LinkedIn messages to connect with your leads.</p>
 
-      <div className="space-y-4 border p-4 rounded-lg shadow-sm">
-        <h2 className="text-xl font-semibold">Lead Information</h2>
+      <div className="space-y-4 bg-gray-800 border border-gray-700 p-6 rounded-2xl shadow-md">
+        <h2 className="text-2xl font-semibold">Lead Information</h2>
 
         <Input
           placeholder="Name"
+          className="bg-gray-700 placeholder-gray-400 text-gray-100 focus:ring-indigo-500"
           value={leadInfo.name}
           onChange={e => handleChange('name', e.target.value)}
           required
         />
         <Input
           placeholder="Role"
+          className="bg-gray-700 placeholder-gray-400 text-gray-100 focus:ring-indigo-500"
           value={leadInfo.role}
           onChange={e => handleChange('role', e.target.value)}
           required
         />
         <Input
           placeholder="Company"
+          className="bg-gray-700 placeholder-gray-400 text-gray-100 focus:ring-indigo-500"
           value={leadInfo.company}
           onChange={e => handleChange('company', e.target.value)}
           required
         />
         <Input
           placeholder="LinkedIn URL (optional)"
+          className="bg-gray-700 placeholder-gray-400 text-gray-100 focus:ring-indigo-500"
           value={leadInfo.linkedin_url}
           onChange={e => handleChange('linkedin_url', e.target.value)}
         />
 
-        {selectedLead && (
-          <Button onClick={generateMessage} disabled={isLoading}>Generate Message</Button>
-        )}
-
-        <div className="flex space-x-2">
-          <Button onClick={selectedLead ? updateLead : insertLead} disabled={!isValid || isLoading}>
+        <div className="flex justify-between items-center space-x-4">
+          {selectedLead && (
+            <Button onClick={generateMessage} disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-500">
+              Generate Message
+            </Button>
+          )}
+          <Button
+            onClick={selectedLead ? updateLead : insertLead}
+            disabled={!isValid || isLoading}
+            className="bg-green-600 hover:bg-green-500"
+          >
             {selectedLead ? 'Save Lead' : 'Insert Lead'}
           </Button>
         </div>
       </div>
 
-      <div className="pt-6">
-        <Button className='mb-2' onClick={loadLeads}>Reload Leads</Button>
-        <h2 className="text-xl font-semibold">Leads</h2>
-        <table className="w-full text-left mt-2 border">
-          <thead>
-            <tr>
-              <th className="border px-2 text-lg">Name</th>
-              <th className="border px-2 text-lg">Role</th>
-              <th className="border px-2 text-lg">Company</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leads.map((lead) => (
-              <tr
-                key={lead.id}
-                className={`cursor-pointer ${selectedLead?.id === lead.id ? 'bg-blue-200' : ''}`}
-                onClick={() => handleSelectLead(lead)}
-              >
-                <td className="border px-2">{lead.name}</td>
-                <td className="border px-2">{lead.role}</td>
-                <td className="border px-2">{lead.company}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {selectedLead && (
-        <div className="pt-6">
-          <h2 className="text-xl font-semibold">Generated Messages</h2>
-          <table className="w-full text-left mt-2 border">
-            <thead>
+      <div className="space-y-4">
+        <Button className="mb-2 bg-blue-600 hover:bg-blue-500" onClick={loadLeads}>
+          Reload Leads
+        </Button>
+        <h2 className="text-2xl font-semibold">Leads</h2>
+        <div className="overflow-x-auto rounded-lg shadow-lg">
+          <table className="min-w-full divide-y divide-gray-700">
+            <thead className="bg-gray-800">
               <tr>
-                <th className="border px-2 text-lg">No</th>
-                <th className="border px-2 text-lg">Content</th>
-                <th className="border px-2 text-lg">Status</th>
+                <th className="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider">Name</th>
+                <th className="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider">Role</th>
+                <th className="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider">Company</th>
               </tr>
             </thead>
-            <tbody>
-              {generatedMessages.map((msg, i) => (
-                <tr key={i}>
-                  <td className="border px-2">{i + 1}</td>
-                  <td className="border px-2 whitespace-pre-wrap">{msg.content}</td>
-                  <td className="border px-2">{msg.status}</td>
+            <tbody className="divide-y divide-gray-700">
+              {leads.map((lead) => (
+                <tr
+                  key={lead.id}
+                  className={`cursor-pointer transition-colors duration-200 ${
+                    selectedLead?.id === lead.id
+                      ? 'bg-indigo-900'
+                      : 'odd:bg-gray-900 even:bg-gray-800 hover:bg-gray-700'
+                  }`}
+                  onClick={() => handleSelectLead(lead)}
+                >
+                  <td className="px-4 py-3 text-sm">{lead.name}</td>
+                  <td className="px-4 py-3 text-sm">{lead.role}</td>
+                  <td className="px-4 py-3 text-sm">{lead.company}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {selectedLead && (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-semibold">Generated Messages</h2>
+          <div className="overflow-x-auto rounded-lg shadow-lg">
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-gray-800">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider">No</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider">Content</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {generatedMessages.map((msg, i) => (
+                  <tr key={i} className="odd:bg-gray-900 even:bg-gray-800 hover:bg-gray-700">
+                    <td className="px-4 py-3 text-sm">{i + 1}</td>
+                    <td className="px-4 py-3 text-sm whitespace-pre-wrap">{msg.content}</td>
+                    <td className="px-4 py-3 text-sm">{msg.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
